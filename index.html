@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企業保有資産マップ</title>
+    <title>日経225 不動産マップ</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         #map { height: 100vh; width: 100%; }
-        .popup-card { min-width: 180px; }
+        .leaflet-popup-content-wrapper { border-radius: 12px; }
     </style>
 </head>
 <body>
@@ -20,31 +20,25 @@
             attribution: '&copy; 国土地理院'
         }).addTo(map);
 
-        async function loadAssets() {
+        async function loadData() {
             try {
+                // 同じフォルダにある locations.json を読み込む
                 const response = await fetch('locations.json');
                 const data = await response.json();
-                data.forEach(asset => {
-                    const marker = L.marker([asset.lat, asset.lng]).addTo(map);
-                    const tagClass = asset.type.includes('工場') ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700';
+                data.forEach(item => {
+                    const marker = L.marker([item.lat, item.lng]).addTo(map);
                     marker.bindPopup(`
-                        <div class="popup-card">
-                            <div class="text-[10px] font-bold text-gray-400 uppercase">${asset.company}</div>
-                            <h3 class="text-base font-bold text-gray-800 mb-1">${asset.name}</h3>
-                            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium ${tagClass} mb-2">
-                                ${asset.type}
-                            </span>
-                            <div class="text-xs text-gray-600 border-t pt-2 mt-1">
-                                ${asset.address}
-                            </div>
+                        <div class="p-1">
+                            <h3 class="font-bold text-blue-600">${item.name}</h3>
+                            <p class="text-sm">${item.address}</p>
                         </div>
                     `);
                 });
             } catch (e) {
-                console.error("Failed to load locations.json", e);
+                console.error("データの読み込みに失敗しました。", e);
             }
         }
-        loadAssets();
+        loadData();
     </script>
 </body>
 </html>
