@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日経225 不動産マップ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #map { height: 100vh; width: 100%; }
+        .leaflet-popup-content-wrapper { border-radius: 12px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([36.2048, 138.2529], 5);
+        L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+            attribution: '&copy; 国土地理院'
+        }).addTo(map);
+
+        async function loadData() {
+            try {
+                // 同じフォルダにある locations.json を読み込む
+                const response = await fetch('locations.json');
+                const data = await response.json();
+                data.forEach(item => {
+                    const marker = L.marker([item.lat, item.lng]).addTo(map);
+                    marker.bindPopup(`
+                        <div class="p-1">
+                            <h3 class="font-bold text-blue-600">${item.name}</h3>
+                            <p class="text-sm">${item.address}</p>
+                        </div>
+                    `);
+                });
+            } catch (e) {
+                console.error("データの読み込みに失敗しました。", e);
+            }
+        }
+        loadData();
+    </script>
+</body>
+</html>
