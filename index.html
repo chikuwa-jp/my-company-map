@@ -3,93 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日経225 所在地Map</title>
+    <title>日経225 拠点マップ</title>
+    <meta name="description" content="日経平均株価採用225銘柄の主要拠点・本社所在地を地図上にプロット">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 地図の高さを少し低く調整 */
-        #map { 
-            height: 500px; 
-            width: 100%; 
-            border-radius: 8px;
-            z-index: 1;
-        }
-        .leaflet-popup-content-wrapper { border-radius: 8px; }
-        .page-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 1rem;
-        }
-        /* 検索候補のリストスタイルをスリムに */
-        #search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 2px solid #6366f1;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 2000;
-            display: none;
-        }
-        .search-item {
-            padding: 8px 12px;
-            cursor: pointer;
-            border-bottom: 1px solid #f3f4f6;
-        }
-        .search-item:hover {
-            background-color: #f5f3ff;
-        }
+        #map { height: 500px; width: 100%; border-radius: 12px; z-index: 10; }
+        .leaflet-popup-content-wrapper { border-radius: 8px; font-family: sans-serif; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+<body class="bg-gray-50 font-sans text-gray-900 flex flex-col min-h-screen">
 
-    <!-- ヘッダーエリア：パディングを縮小 -->
-    <header class="bg-white border-b shadow-sm py-4">
-        <div class="max-w-4xl mx-auto px-4 text-center">
-            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
-                🏢 日経225 所在地Map
-            </h1>
-            
-            <!-- タイトル下の検索フォーム：マージンとパディングをスリム化 -->
-            <div class="relative mt-4 max-w-lg mx-auto">
-                <div class="flex items-center bg-white rounded-lg px-3 border-2 border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition shadow-sm">
-                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                    <input type="text" id="search-input" placeholder="企業名やコード（例: トヨタ, 7203）" 
-                           class="bg-transparent border-none w-full p-2 text-base font-medium focus:outline-none placeholder-gray-400" autocomplete="off">
-                </div>
-                <div id="search-results" class="shadow-lg text-left"></div>
+    <!-- ナビゲーション -->
+    <nav class="bg-indigo-700 text-white shadow-lg sticky top-0 z-[2000]">
+        <div class="max-w-6xl mx-auto px-4 h-14 flex items-center">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">🗾</span>
+                <span class="font-bold tracking-tighter text-lg">日経225 拠点マップ</span>
             </div>
+        </div>
+    </nav>
+
+    <!-- ヒーローセクション -->
+    <header class="bg-white border-b py-10 px-4 text-center">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-4">日経225 拠点マップ</h1>
+        <p class="text-gray-600 max-w-2xl mx-auto text-base leading-relaxed">
+            日経平均株価に採用される225の主要企業<br>
+            拠点配置を地図上で俯瞰し、ビジネス構造や地域経済への影響を分析するためのマップ
+        </p>
+        
+        <!-- 検索バー -->
+        <div class="relative mt-8 max-w-xl mx-auto">
+            <div class="flex items-center bg-gray-50 rounded-full px-5 py-1 border-2 border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100 transition">
+                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" id="search-input" placeholder="企業名、証券コードで検索..." class="bg-transparent border-none w-full p-3 text-base focus:outline-none" autocomplete="off">
+            </div>
+            <div id="search-results" class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-[3000] hidden"></div>
         </div>
     </header>
 
-    <!-- メインコンテンツ -->
-    <main class="page-container">
-        <div class="bg-white p-3 rounded-xl shadow-md border border-gray-200">
-            <div id="map" class="shadow-inner bg-gray-100"></div>
+    <main class="flex-grow max-w-6xl mx-auto w-full px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            <div id="stats" class="mt-3 flex flex-wrap gap-4 text-[11px] text-gray-500 px-1">
-                <span class="flex items-center gap-1 font-medium text-gray-600">
-                    <span class="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse"></span> 読込中...
-                </span>
+            <!-- 左側：地図エリア -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white p-2 rounded-2xl shadow-sm border border-gray-200 relative">
+                    <div id="map"></div>
+                    <div id="map-overlay" class="absolute bottom-6 left-6 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-sm border text-[11px] font-bold text-gray-600">
+                        プロット数: <span id="count-num" class="text-indigo-600">0</span> 拠点
+                    </div>
+                </div>
+
+                <!-- 業種別クイックフィルター -->
+                <div class="flex flex-wrap gap-2 py-2">
+                    <span class="text-xs font-bold text-gray-400 mr-2 flex items-center">業種で絞り込み:</span>
+                    <button onclick="filterBySector('電気機器')" class="px-3 py-1 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100">電気機器</button>
+                    <button onclick="filterBySector('自動車')" class="px-3 py-1 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100">自動車</button>
+                    <button onclick="filterBySector('情報・通信')" class="px-3 py-1 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100">情報・通信</button>
+                    <button onclick="filterBySector('サービス')" class="px-3 py-1 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100">サービス</button>
+                    <button onclick="filterBySector('all')" class="px-3 py-1 bg-gray-100 border rounded-full text-xs hover:bg-gray-200 transition border-gray-200">すべて表示</button>
+                </div>
             </div>
+
+            <!-- 右側：サイドバー -->
+            <aside class="space-y-6">
+                <!-- 企業詳細カード -->
+                <div id="detail-card" class="bg-indigo-900 text-white p-6 rounded-2xl shadow-xl transition-all opacity-40">
+                    <h2 class="text-xl font-bold mb-1" id="detail-name">企業を選択してください</h2>
+                    <p class="text-indigo-300 text-xs mb-4" id="detail-code">----</p>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex gap-2">
+                            <span class="opacity-60 shrink-0">所在地:</span>
+                            <span id="detail-addr">-</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <span class="opacity-60 shrink-0">業種名:</span>
+                            <span id="detail-sector">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-gray-800 mb-3 text-sm">データについて</h3>
+                    <div class="text-xs text-gray-500 leading-relaxed space-y-3">
+                        <p>
+                            本マップは、各企業が公開している公式情報を元に作成されています
+                        </p>
+                        <div class="bg-amber-50 p-3 rounded-lg border-l-4 border-amber-400 text-amber-900">
+                            <p class="font-bold mb-1 text-[11px]">【ご利用にあたっての注意】</p>
+                            <p>
+                                データの更新タイミング等により、最新の拠点状況と異なる場合があります。重要な判断を行う際は、必ず各企業の公式サイトや最新の有価証券報告書などで、ご自身による確認をお願いいたします
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
         </div>
     </main>
 
-    <footer class="mt-auto py-4 text-center text-gray-400 text-[10px]">
-        &copy; 2024 Corporate Location Database | Data source: locations.json
+    <footer class="bg-white border-t py-8 px-4 mt-auto">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-left">
+                <div class="font-bold text-gray-900 text-sm">日経225 拠点マップ</div>
+            </div>
+            <p class="text-[10px] text-gray-400">&copy; 2024 Corporate Map Project</p>
+        </div>
     </footer>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map').setView([36.2048, 138.2529], 5);
+        const map = L.map('map', { scrollWheelZoom: false }).setView([36.2048, 138.2529], 5);
+        map.on('click', () => { map.scrollWheelZoom.enable(); });
+
         let allMarkers = {}; 
         let companyData = []; 
+        let markerLayer = L.layerGroup().addTo(map);
         
         L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
@@ -98,73 +126,70 @@
         async function loadData() {
             try {
                 const response = await fetch('locations.json');
-                if (!response.ok) throw new Error('Network response was not ok');
                 companyData = await response.json();
-                
-                let count = 0;
-                companyData.forEach(item => {
-                    if (item.lat && item.lng) {
-                        const marker = L.marker([item.lat, item.lng]).addTo(map);
-                        
-                        const popupContent = `
-                            <div class="p-0.5 min-w-[160px]">
-                                <div class="text-[9px] font-bold text-indigo-500 mb-0.5 tracking-wider uppercase">
-                                    ${item.code ? 'コード: ' + item.code : '日経225'}
-                                </div>
-                                <h3 class="font-bold text-gray-800 text-sm leading-tight">${item.name}</h3>
-                                <p class="text-[11px] text-gray-600 mt-1">${item.address}</p>
-                                <div class="mt-2 text-right border-t pt-1.5">
-                                    <a href="https://www.google.com/maps/search/${encodeURIComponent(item.address)}" 
-                                       target="_blank" 
-                                       class="text-[11px] text-blue-600 hover:text-blue-800 font-bold inline-flex items-center">
-                                       Google Map <span class="ml-1">→</span>
-                                    </a>
-                                </div>
-                            </div>
-                        `;
-                        marker.bindPopup(popupContent);
-                        
-                        allMarkers[item.name] = marker;
-                        if (item.code) allMarkers[item.code] = marker;
-                        
-                        count++;
-                    }
-                });
-
-                document.getElementById('stats').innerHTML = `
-                    <span class="flex items-center gap-1 font-semibold text-gray-600">
-                        <span class="w-2.5 h-2.5 bg-green-500 rounded-full"></span> 
-                        プロット数: ${count} 拠点
-                    </span>
-                `;
+                renderMarkers(companyData);
             } catch (e) {
-                console.error("Error loading data:", e);
-                document.getElementById('stats').innerHTML = `<span class="text-red-500">データ読込失敗</span>`;
+                console.error("データの読み込みに失敗しました:", e);
             }
+        }
+
+        function renderMarkers(data) {
+            markerLayer.clearLayers();
+            allMarkers = {};
+            let count = 0;
+
+            data.forEach(item => {
+                if (item.lat && item.lng) {
+                    const marker = L.marker([item.lat, item.lng]);
+                    marker.bindPopup(`
+                        <div class="font-sans">
+                            <h3 class="font-bold text-sm border-b pb-1 mb-1">${item.name}</h3>
+                            <p class="text-[10px] text-gray-500">${item.address}</p>
+                        </div>
+                    `);
+                    marker.on('click', () => updateDetailCard(item));
+                    marker.addTo(markerLayer);
+                    allMarkers[item.name] = marker;
+                    count++;
+                }
+            });
+            document.getElementById('count-num').innerText = count;
+        }
+
+        function filterBySector(sector) {
+            if (sector === 'all') {
+                renderMarkers(companyData);
+            } else {
+                const filtered = companyData.filter(item => item.sector && item.sector.includes(sector));
+                renderMarkers(filtered);
+            }
+        }
+
+        function updateDetailCard(item) {
+            const card = document.getElementById('detail-card');
+            card.classList.remove('opacity-40');
+            document.getElementById('detail-name').innerText = item.name;
+            document.getElementById('detail-code').innerText = item.code || '----';
+            document.getElementById('detail-addr').innerText = item.address;
+            document.getElementById('detail-sector').innerText = item.sector || '不明';
         }
 
         const searchInput = document.getElementById('search-input');
         const searchResults = document.getElementById('search-results');
-
+        
         searchInput.addEventListener('input', (e) => {
             const query = e.target.value.trim().toLowerCase();
-            if (!query) {
-                searchResults.style.display = 'none';
-                return;
-            }
-
+            if (!query) { searchResults.style.display = 'none'; return; }
             const filtered = companyData.filter(item => 
                 (item.name && item.name.toLowerCase().includes(query)) || 
                 (item.code && item.code.toString().includes(query))
-            ).slice(0, 6); 
+            ).slice(0, 5);
 
             if (filtered.length > 0) {
                 searchResults.innerHTML = filtered.map(item => `
-                    <div class="search-item" onclick="moveToMarker('${item.name}')">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm font-bold text-gray-800">${item.name}</span>
-                            <span class="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-mono">${item.code || '-'}</span>
-                        </div>
+                    <div class="p-3 hover:bg-gray-50 cursor-pointer border-b flex justify-between items-center transition" onclick="moveToMarker('${item.name}')">
+                        <span class="text-sm font-bold text-gray-700">${item.name}</span>
+                        <span class="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500">${item.code || '-'}</span>
                     </div>
                 `).join('');
                 searchResults.style.display = 'block';
@@ -173,22 +198,17 @@
             }
         });
 
-        window.moveToMarker = function(companyName) {
-            const marker = allMarkers[companyName];
-            if (marker) {
-                const latLng = marker.getLatLng();
-                map.setView(latLng, 16); 
+        window.moveToMarker = (name) => {
+            const marker = allMarkers[name];
+            const item = companyData.find(c => c.name === name);
+            if (marker && item) {
+                map.setView(marker.getLatLng(), 16);
                 marker.openPopup();
+                updateDetailCard(item);
             }
             searchResults.style.display = 'none';
-            searchInput.value = companyName;
+            searchInput.value = name;
         };
-
-        document.addEventListener('click', (e) => {
-            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                searchResults.style.display = 'none';
-            }
-        });
 
         window.onload = loadData;
     </script>
