@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 地図の高さを指定 */
         #map { 
             height: 600px; 
             width: 100%; 
@@ -15,11 +14,33 @@
             z-index: 1;
         }
         .leaflet-popup-content-wrapper { border-radius: 12px; }
-        /* 余白用のコンテナ設定 */
         .page-container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 2rem 1rem;
+        }
+        /* 検索候補のリストスタイル */
+        #search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 2000;
+            display: none;
+        }
+        .search-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .search-item:hover {
+            background-color: #f9fafb;
         }
     </style>
 </head>
@@ -27,17 +48,28 @@
 
     <!-- ヘッダーエリア -->
     <header class="bg-white border-b shadow-sm py-6">
-        <div class="max-w-7xl mx-auto px-4 text-center">
-            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
-                🏢 日経225 所在地Map
-            </h1>
-            <p class="mt-2 text-gray-500 text-sm">
-                日経平均株価採用銘柄の拠点を可視化したインタラクティブ・マップ
-            </p>
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                    🏢 日経225 所在地Map
+                </h1>
+                <p class="mt-1 text-gray-500 text-sm">
+                    証券コードや企業名で拠点を検索
+                </p>
+            </div>
+            
+            <!-- 検索フォーム -->
+            <div class="relative w-full max-w-sm">
+                <div class="flex items-center bg-gray-100 rounded-xl px-3 border border-gray-200 focus-within:ring-2 focus-within:ring-indigo-500 transition shadow-sm">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <input type="text" id="search-input" placeholder="銘柄名またはコードを入力..." class="bg-transparent border-none w-full p-3 text-sm focus:outline-none" autocomplete="off">
+                </div>
+                <div id="search-results" class="shadow-lg"></div>
+            </div>
         </div>
     </header>
 
-    <!-- メインコンテンツ（余白あり） -->
+    <!-- メインコンテンツ -->
     <main class="page-container">
         <div class="bg-white p-4 rounded-2xl shadow-md border border-gray-200">
             <div id="map" class="shadow-inner"></div>
@@ -56,31 +88,29 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 地図の初期化（日本全体が見えるように設定）
         const map = L.map('map').setView([36.2048, 138.2529], 5);
+        let allMarkers = {}; // 企業名やコードでマーカーを管理するオブジェクト
+        let companyData = []; // 全データを保持する配列
         
-        // 国土地理院の標準地図タイルを使用
         L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
         }).addTo(map);
 
         async function loadData() {
             try {
-                // generate_from_csv.py で作成された JSON を読み込む
                 const response = await fetch('locations.json');
                 if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
+                companyData = await response.json();
                 
                 let count = 0;
-                data.forEach(item => {
+                companyData.forEach(item => {
                     if (item.lat && item.lng) {
                         const marker = L.marker([item.lat, item.lng]).addTo(map);
                         
-                        // ポップアップの内容
                         const popupContent = `
                             <div class="p-1">
                                 <div class="text-[10px] font-bold text-indigo-500 mb-1 tracking-wider uppercase">
-                                    ${item.code ? 'コード: ' + item.code : (item.sector || '企業拠点')}
+                                    ${item.code ? 'コード: ' + item.code : '日経225採用銘柄'}
                                 </div>
                                 <h3 class="font-bold text-gray-800 text-base leading-tight">${item.name}</h3>
                                 <p class="text-sm text-gray-600 mt-1">${item.address}</p>
@@ -94,30 +124,76 @@
                             </div>
                         `;
                         marker.bindPopup(popupContent);
+                        
+                        // 検索用にマーカーを保存 (名前とコードの両方をキーにする)
+                        allMarkers[item.name] = marker;
+                        if (item.code) allMarkers[item.code] = marker;
+                        
                         count++;
                     }
                 });
 
-                // 統計情報の更新
                 document.getElementById('stats').innerHTML = `
                     <span class="flex items-center gap-1 font-medium text-gray-700">
                         <span class="w-3 h-3 bg-green-500 rounded-full"></span> 
-                        プロット済み: ${count} 拠点（日経225関連）
+                        プロット済み: ${count} 拠点
                     </span>
-                    <span class="text-gray-300">|</span>
-                    <span class="text-gray-500">Source: locations.json</span>
                 `;
             } catch (e) {
                 console.error("データの読み込みに失敗しました。", e);
-                document.getElementById('stats').innerHTML = `
-                    <span class="text-red-500 font-bold flex items-center gap-1">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                        locations.jsonが見つかりません。Pythonスクリプトを実行してください。
-                    </span>`;
+                document.getElementById('stats').innerHTML = `<span class="text-red-500 font-bold">locations.jsonの読み込みエラー。</span>`;
             }
         }
-        
-        // ページ読み込み時にデータロードを実行
+
+        // 検索機能の実装
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim().toLowerCase();
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            // 企業名またはコードでフィルタリング
+            const filtered = companyData.filter(item => 
+                (item.name && item.name.toLowerCase().includes(query)) || 
+                (item.code && item.code.toString().includes(query))
+            ).slice(0, 10); // 上位10件を表示
+
+            if (filtered.length > 0) {
+                searchResults.innerHTML = filtered.map(item => `
+                    <div class="search-item" onclick="moveToMarker('${item.name}')">
+                        <div class="text-sm font-bold text-gray-800">${item.name}</div>
+                        <div class="text-[10px] text-gray-500">${item.code ? '証券コード: ' + item.code : ''}</div>
+                    </div>
+                `).join('');
+                searchResults.style.display = 'block';
+            } else {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // 特定の企業のマーカーに移動する関数
+        window.moveToMarker = function(companyName) {
+            const marker = allMarkers[companyName];
+            if (marker) {
+                const latLng = marker.getLatLng();
+                map.setView(latLng, 15); // ズームして移動
+                marker.openPopup();
+            }
+            searchResults.style.display = 'none';
+            searchInput.value = companyName;
+        };
+
+        // 画面のどこかをクリックしたら検索結果を閉じる
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+
         window.onload = loadData;
     </script>
 </body>
