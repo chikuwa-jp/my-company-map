@@ -3,21 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日経225 不動産マップ</title>
+    <title>日本の主要企業 所在地Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         #map { height: 100vh; width: 100%; }
         .leaflet-popup-content-wrapper { border-radius: 12px; }
+        .map-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            pointer-events: none;
+            border: 1px solid #e5e7eb;
+        }
     </style>
 </head>
 <body>
+    <div class="map-title text-xl font-bold text-gray-800 shadow-sm">
+        🏢 日本の主要企業 所在地Map
+    </div>
+    
     <div id="map"></div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // 地図の初期化
         const map = L.map('map').setView([36.2048, 138.2529], 5);
+        
+        // 国土地理院の標準地図タイルを使用
         L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-            attribution: '&copy; 国土地理院'
+            attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
         }).addTo(map);
 
         async function loadData() {
@@ -25,17 +46,27 @@
                 // 同じフォルダにある locations.json を読み込む
                 const response = await fetch('locations.json');
                 const data = await response.json();
+                
                 data.forEach(item => {
-                    const marker = L.marker([item.lat, item.lng]).addTo(map);
-                    marker.bindPopup(`
-                        <div class="p-1">
-                            <h3 class="font-bold text-blue-600">${item.name}</h3>
-                            <p class="text-sm">${item.address}</p>
-                        </div>
-                    `);
+                    // 緯度経度がある場合のみマーカーを設置
+                    if (item.lat && item.lng) {
+                        const marker = L.marker([item.lat, item.lng]).addTo(map);
+                        marker.bindPopup(`
+                            <div class="p-1">
+                                <div class="text-xs font-bold text-indigo-500 mb-1">${item.sector || '企業拠点'}</div>
+                                <h3 class="font-bold text-gray-800 text-base">${item.name}</h3>
+                                <p class="text-sm text-gray-600 mt-1">${item.address}</p>
+                                <div class="mt-2 text-right border-t pt-2">
+                                    <a href="https://www.google.com/maps/search/${encodeURIComponent(item.address)}" 
+                                       target="_blank" 
+                                       class="text-xs text-blue-600 hover:text-blue-800 font-medium">Google Mapで見る →</a>
+                                </div>
+                            </div>
+                        `);
+                    }
                 });
             } catch (e) {
-                console.error("データの読み込みに失敗しました。", e);
+                console.error("データの読み込みに失敗しました。locations.jsonが同じフォルダにあるか確認してください。", e);
             }
         }
         loadData();
