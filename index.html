@@ -29,7 +29,7 @@
         <h1 class="text-3xl font-extrabold text-gray-900 mb-4">日経225 拠点マップ</h1>
         <p class="text-gray-600 max-w-2xl mx-auto text-base leading-relaxed">
             日経平均株価に採用される225の主要企業<br>
-            拠点配置を地図上で俯瞰し、ビジネス構造や地域経済への影響を分析するためのマップ
+            拠点配置を地図上で俯瞰し、ビジネス構造を分析するためのマップ
         </p>
         
         <!-- 検索バー -->
@@ -53,18 +53,6 @@
                         表示数: <span id="count-num" class="text-indigo-600">0</span> 拠点
                     </div>
                 </div>
-
-                <!-- 業種別クイックフィルター -->
-                <div class="flex flex-wrap items-center gap-2 py-2">
-                    <span class="text-xs font-bold text-gray-400 mr-2 flex items-center">業種で絞り込み:</span>
-                    <button onclick="filterBySector('電気機器')" class="sector-btn px-4 py-1.5 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100 shadow-sm">電気機器</button>
-                    <button onclick="filterBySector('自動車')" class="sector-btn px-4 py-1.5 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100 shadow-sm">自動車</button>
-                    <button onclick="filterBySector('情報・通信')" class="sector-btn px-4 py-1.5 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100 shadow-sm">情報・通信</button>
-                    <button onclick="filterBySector('小売')" class="sector-btn px-4 py-1.5 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100 shadow-sm">小売</button>
-                    <button onclick="filterBySector('卸売')" class="sector-btn px-4 py-1.5 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100 shadow-sm">卸売</button>
-                    <button onclick="filterBySector('サービス')" class="sector-btn px-4 py-1.5 bg-white border rounded-full text-xs hover:bg-indigo-50 transition border-indigo-100 shadow-sm">サービス</button>
-                    <button onclick="filterBySector('all')" class="px-4 py-1.5 bg-gray-100 border rounded-full text-xs hover:bg-gray-200 transition border-gray-200 shadow-sm font-bold">すべて表示</button>
-                </div>
             </div>
 
             <!-- 下部：データについて -->
@@ -77,15 +65,14 @@
                     <div class="text-sm text-gray-600 leading-relaxed space-y-3">
                         <p>
                             本マップは、各企業が公開している有価証券報告書や公式サイトの拠点情報を元に作成されています。
-                            日経平均株価（日経225）に採用されている企業の「主要な設備の状況」を可視化することで、日本の産業集積地の分布を確認できます。
+                            日経平均株価（日経225）に採用されている企業の主要拠点配置を可視化しています。
                         </p>
                     </div>
                     <div class="bg-amber-50 p-4 rounded-xl border-l-4 border-amber-400 text-amber-900 text-xs">
                         <p class="font-bold mb-2 text-sm italic">【ご利用にあたっての注意】</p>
                         <ul class="list-disc list-inside space-y-1">
-                            <li>データの更新タイミングにより、最新の拠点状況（移転・閉鎖等）と異なる場合があります。</li>
-                            <li>座標情報は住所からの自動変換であるため、厳密な敷地位置とわずかにズレが生じる可能性があります。</li>
-                            <li>重要な判断を行う際は、必ず各企業の公式サイトや最新の法定書類をご確認ください。</li>
+                            <li>座標情報は住所からの自動変換であるため、わずかにズレが生じる可能性があります。</li>
+                            <li>最新の情報については各企業の公式サイトをご確認ください。</li>
                         </ul>
                     </div>
                 </div>
@@ -98,7 +85,7 @@
             <div class="text-left">
                 <div class="font-bold text-gray-900 text-sm">日経225 拠点マップ</div>
             </div>
-            <p class="text-[10px] text-gray-400">&copy; 2024 Corporate Map Project</p>
+            <p class="text-[10px] text-gray-400">&copy; 2025 Chikuwa-jp</p>
         </div>
     </footer>
 
@@ -122,7 +109,6 @@
                 renderMarkers(companyData);
             } catch (e) {
                 console.error("データの読み込みに失敗しました:", e);
-                // フォールバック用の空表示
                 document.getElementById('count-num').innerText = "0";
             }
         }
@@ -149,32 +135,6 @@
                 }
             });
             document.getElementById('count-num').innerText = count;
-            
-            // 全体が見えるように調整（フィルタリング時）
-            if (count > 0 && count < companyData.length) {
-                const group = new L.featureGroup(Object.values(allMarkers));
-                map.fitBounds(group.getBounds().pad(0.1));
-            }
-        }
-
-        // 絞り込みロジックの修正：完全一致ではなく包含判定に変更
-        function filterBySector(sectorKeyword) {
-            // 全てのボタンのスタイルをリセット（簡易）
-            document.querySelectorAll('.sector-btn').forEach(btn => {
-                btn.classList.remove('bg-indigo-600', 'text-white');
-                btn.classList.add('bg-white', 'text-gray-900');
-            });
-
-            if (sectorKeyword === 'all') {
-                renderMarkers(companyData);
-                map.setView([36.2048, 138.2529], 5);
-            } else {
-                // 業種名にキーワードが含まれているかチェック
-                const filtered = companyData.filter(item => 
-                    item.sector && item.sector.includes(sectorKeyword)
-                );
-                renderMarkers(filtered);
-            }
         }
 
         const searchInput = document.getElementById('search-input');
@@ -184,7 +144,6 @@
             const query = e.target.value.trim().toLowerCase();
             if (!query) { searchResults.style.display = 'none'; return; }
             
-            // 企業名または証券コードで検索
             const filtered = companyData.filter(item => 
                 (item.name && item.name.toLowerCase().includes(query)) || 
                 (item.code && item.code.toString().includes(query))
